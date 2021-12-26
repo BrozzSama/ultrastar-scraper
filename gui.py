@@ -8,6 +8,7 @@ from os import getcwd, rename, mkdir, remove
 from urllib.request import urlopen
 from yt_dlp import YoutubeDL
 
+
 class ScraperGUI(tk.Tk):
     # Create GUI, the self.* variables are publicly accessible and can be modified
     # by other scripts
@@ -41,7 +42,7 @@ class ScraperGUI(tk.Tk):
         ttk.Label(mainframe, text="Cover Art URL:").grid(column=1, row=4)
         ttk.Label(mainframe, text="Root directory:").grid(column=1, row=5)
         ttk.Button(mainframe, text='Browse', command=lambda: self.choose_root_dir(self.start_dir)).grid(
-            column=3, row=5, padx=3 )
+            column=3, row=5, padx=3)
         ttk.Button(mainframe, text='Scrape!',
                    command=self.scrape).grid(column=2, row=6, pady=3)
 
@@ -83,18 +84,22 @@ class ScraperGUI(tk.Tk):
             ultrastar_file_path = join(
                 song_dir, configuration["ARTIST"] + " - " + configuration["TITLE"] + ".txt")
             with open(ultrastar_file_path, "w") as f:
-                f.write(self.ultrastar_file.get("1.0", "end"))
+                try:
+                    f.write(self.ultrastar_file.get("1.0", "end"))
+                except PermissionError:
+                    messagebox.showerror(
+                        title="Error", message="Error Ultrastar File could not be created, check permissions and try again")
+                    self.progress_window.destroy()
             fail_song = self.download_song(
                 self.youtube_url.get(), configuration, song_dir)
             if (fail_song):
                 messagebox.showerror(
-                    title="Error", message="Error song could not be downloaded, check Youtube URL")
+                    title="Error", message="Error song could not be downloaded, check Youtube URL or directory permission and try again")
                 self.progress_window.destroy()
                 return
             fail_cover = self.download_cover(
                 self.cover_url.get(), configuration, song_dir)
-            self.progress_window.destroy()
-            
+
             if (fail_cover):
                 messagebox.showwarning(
                     title="Warning", message="Error while downloading cover art, however song will still work")
@@ -104,15 +109,16 @@ class ScraperGUI(tk.Tk):
                 self.cover_url.set('')
                 messagebox.showinfo(
                     title="Success", message="Song downloaded successfully")
+            self.progress_window.destroy()
 
     def choose_root_dir(self, start_dir):
         if (start_dir == ""):
             start_dir = getcwd()
-        filename = filedialog.askdirectory(initialdir=start_dir,
+        dir_name = filedialog.askdirectory(initialdir=start_dir,
                                            title="Select a Directory")
 
         # Change label contents
-        self.root_dir.set(0, filename)
+        self.root_dir.set(dir_name)
     # Methods that downloads song from specified directory
     # static since it does not need the object
 
@@ -123,7 +129,6 @@ class ScraperGUI(tk.Tk):
             percent = int(float(d['_percent_str'][:-1]))
             self.progress_window.step(percent)
             self.update()
-
 
     def download_song(self, url, configuration, root_dir):
         keep_video = False
@@ -185,10 +190,12 @@ class ProgressBar(tk.Toplevel):
         # label
         self.value_label = ttk.Label(self, text="")
         self.value_label.grid(column=0, row=1, columnspan=2)
+
     def step(self, value):
         self.pb['value'] = value
         self.update_progress_label()
         self.update_idletasks()
+
     def update_progress_label(self):
         if (self.pb['value'] < 10):
             self.value_label.config(text="Initializing directory...")
