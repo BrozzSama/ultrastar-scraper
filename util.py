@@ -13,12 +13,6 @@ class MyLogger(object):
     def error(self, msg):
         print(msg)
 
-
-def my_hook(d):
-    if d['status'] == 'finished':
-        print('Done downloading, now converting ...')
-
-
 def remove_suffix(input_string, suffix):
     if suffix and input_string.endswith(suffix):
         return input_string[:-len(suffix)]

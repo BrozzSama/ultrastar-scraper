@@ -55,19 +55,19 @@ class ScraperGUI(tk.Tk):
         mainframe.rowconfigure(2, weight=1)
 
     def scrape(self):
-        progress_window = ProgressBar()
+        self.progress_window = ProgressBar()
         config_file = self.ultrastar_file.get("1.0", "end").split("\n")
         configuration = parse_ultrastar(config_file)
         if (check_ultrastar(configuration) < 0):
             messagebox.showerror(
                 title="Error", message="Ultrastar file metadata could not be parsed")
-            progress_window.destroy()
+            self.progress_window.destroy()
             return
 
         if (not exists(self.root_dir.get())):
             messagebox.showerror(
                 title="Error", message="Root directory does not exists, check parameters and try again")
-            progress_window.destroy()
+            self.progress_window.destroy()
             return
         song_dir = join(self.root_dir.get(),
                         configuration["ARTIST"] + " - " + configuration["TITLE"])
@@ -84,19 +84,16 @@ class ScraperGUI(tk.Tk):
                 song_dir, configuration["ARTIST"] + " - " + configuration["TITLE"] + ".txt")
             with open(ultrastar_file_path, "w") as f:
                 f.write(self.ultrastar_file.get("1.0", "end"))
-            progress_window.step(10)
             fail_song = self.download_song(
                 self.youtube_url.get(), configuration, song_dir)
             if (fail_song):
                 messagebox.showerror(
                     title="Error", message="Error song could not be downloaded, check Youtube URL")
-                progress_window.destroy()
+                self.progress_window.destroy()
                 return
-            progress_window.step(80)
             fail_cover = self.download_cover(
                 self.cover_url.get(), configuration, song_dir)
-            progress_window.step(100)
-            progress_window.destroy()
+            self.progress_window.destroy()
             
             if (fail_cover):
                 messagebox.showwarning(
@@ -119,8 +116,16 @@ class ScraperGUI(tk.Tk):
     # Methods that downloads song from specified directory
     # static since it does not need the object
 
-    @staticmethod
-    def download_song(url, configuration, root_dir):
+    def myhook(self, d):
+        if d['status'] == 'finished':
+            print('Done downloading, now converting ...')
+        if d['status'] == 'downloading':
+            percent = int(float(d['_percent_str'][:-1]))
+            self.progress_window.step(percent)
+            self.update()
+
+
+    def download_song(self, url, configuration, root_dir):
         keep_video = False
         mp3_filename = remove_suffix(configuration['MP3'], ".mp3")
         if ("VIDEO" in configuration):
@@ -134,7 +139,7 @@ class ScraperGUI(tk.Tk):
                 'preferredquality': '192',
             }],
             'logger': MyLogger(),
-            'progress_hooks': [my_hook],
+            'progress_hooks': [self.myhook],
             'outtmpl': join(root_dir, mp3_filename + '.%(ext)s'),
             'keepvideo': keep_video
         }
@@ -147,7 +152,7 @@ class ScraperGUI(tk.Tk):
 
         if (keep_video):
             old_name = join(root_dir, mp3_filename + ".mp4")
-            new_name = join(root_dir, configuration["VIDEO"] + ".mp4")
+            new_name = join(root_dir, configuration["VIDEO"])
             rename(old_name, new_name)
         return 0
 
@@ -181,7 +186,7 @@ class ProgressBar(tk.Toplevel):
         self.value_label = ttk.Label(self, text="")
         self.value_label.grid(column=0, row=1, columnspan=2)
     def step(self, value):
-        self.pb['value'] = self.pb['value'] + value
+        self.pb['value'] = value
         self.update_progress_label()
         self.update_idletasks()
     def update_progress_label(self):
